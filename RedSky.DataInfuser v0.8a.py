@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 
 # Конфигурационная переменная для пути к папке интерфейса WoW
-WoW_InterfaceFolderPath = "C:\GAMES\Isengard_WotLK_335a\Interface\AddOns\EzInfo"  # Укажите путь, например: "C:\Isengard_WotLK_335a\Interface\AddOns\EzInfo"
+WoW_InterfaceFolderPath = r"C:\GAMES\Isengard_WotLK_335a\Interface\AddOns\EzInfo"  # Укажите путь, например: "C:\Isengard_WotLK_335a\Interface\AddOns\EzInfo"
 
 # Глобальная переменная для файла лога
 log_file = None
@@ -17,35 +17,47 @@ def setup_logging():
         os.makedirs(logs_dir)
     
     # Создаем имя файла с текущей датой и временем
-    current_time = datetime.now().strftime("%d.%m.%Y-%H:%M")
-    log_filename = f"DataInfuser_{current_time}.log"
+    current_time = datetime.now().strftime("%d.%m.%Y-%H.%M.%S")
+    log_filename = f"DataInfuser_{current_time}.txt"  # Изменено на .txt
     log_filepath = os.path.join(logs_dir, log_filename)
     
-    # Открываем файл для записи
-    log_file = open(log_filepath, 'w', encoding='utf-8')
-    
-    # Пишем начальную информацию
-    log_file.write(f"Логирование начато: {log_filepath}\n")
-    log_file.write(f"Время запуска: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
-    log_file.write("-" * 50 + "\n")
-    log_file.flush()
+    try:
+        # Открываем файл для записи (используем 'a' для добавления, чтобы не потерять данные при ошибках)
+        log_file = open(log_filepath, 'a', encoding='utf-8')
+        
+        # Пишем начальную информацию
+        log_file.write(f"Логирование начато: {log_filepath}\n")
+        log_file.write(f"Время запуска: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
+        log_file.write("-" * 50 + "\n")
+        log_file.flush()
+        log_message(f"Лог-файл создан: {log_filepath}")
+    except Exception as e:
+        print(f"Ошибка создания лог-файла: {e}")
 
 def log_message(message):
     """Записывает сообщение в лог файл и выводит в консоль"""
     global log_file
     print(message)  # Выводим в консоль
     if log_file:
-        log_file.write(message + "\n")
-        log_file.flush()
+        try:
+            log_file.write(message + "\n")
+            log_file.flush()  # Принудительно записываем в файл
+        except Exception as e:
+            print(f"Ошибка записи в лог: {e}")
 
 def close_logging():
     """Закрывает файл лога"""
     global log_file
     if log_file:
-        log_file.write("-" * 50 + "\n")
-        log_file.write(f"Логирование завершено: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
-        log_file.close()
-        log_file = None
+        try:
+            log_file.write("-" * 50 + "\n")
+            log_file.write(f"Логирование завершено: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
+            log_file.close()
+            log_message(f"Лог-файл закрыт")
+        except Exception as e:
+            print(f"Ошибка закрытия лог-файла: {e}")
+        finally:
+            log_file = None
 
 # Таблицы для преобразования классов и рас
 CLASSES = {
