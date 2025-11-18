@@ -4,7 +4,7 @@ import shutil
 from datetime import datetime
 
 # Конфигурационная переменная для пути к папке интерфейса WoW
-WoW_InterfaceFolderPath = r"C:\GAMES\Isengard_WotLK_335a\Interface\AddOns\EzInfo"  # Укажите путь, например: "C:\Isengard_WotLK_335a\Interface\AddOns\EzInfo"
+WoW_InterfaceFolderPath = "C:\GAMES\Isengard_WotLK_335a\Interface\AddOns\EzInfo"  # Укажите путь, например: "C:\Isengard_WotLK_335a\Interface\AddOns\EzInfo"
 
 # Глобальная переменная для файла лога
 log_file = None
@@ -495,3 +495,4 @@ if __name__ == "__main__":
         log_message(f"Трассировка ошибки: {traceback.format_exc()}")
     finally:
         close_logging()
+
