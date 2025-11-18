@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: |cFF800080EzInfo|r
+## Notes: be a young Detective. Video game! (Quickly and easily shows all chars of account)
+## Notes-ruRU: Позволяет играть в маминого сыщика
+## Version: 0.4b
+## Author: неизвестный герой
+## Dependencies:
+## OptionalDeps:
+
+EzInfo.lua
