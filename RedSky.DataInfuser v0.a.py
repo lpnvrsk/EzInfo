@@ -4,7 +4,48 @@ import shutil
 from datetime import datetime
 
 # Конфигурационная переменная для пути к папке интерфейса WoW
-WoW_InterfaceFolderPath = ""  # Укажите путь, например: "C:/World of Warcraft/Interface/AddOns"
+WoW_InterfaceFolderPath = "C:\GAMES\Isengard_WotLK_335a\Interface\AddOns\EzInfo"  # Укажите путь, например: "C:\Isengard_WotLK_335a\Interface\AddOns\EzInfo"
+
+# Глобальная переменная для файла лога
+log_file = None
+
+def setup_logging():
+    """Настраивает логирование в файл с временной меткой"""
+    global log_file
+    logs_dir = "LOGS"
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir)
+    
+    # Создаем имя файла с текущей датой и временем
+    current_time = datetime.now().strftime("%d.%m.%Y-%H:%M")
+    log_filename = f"DataInfuser_{current_time}.log"
+    log_filepath = os.path.join(logs_dir, log_filename)
+    
+    # Открываем файл для записи
+    log_file = open(log_filepath, 'w', encoding='utf-8')
+    
+    # Пишем начальную информацию
+    log_file.write(f"Логирование начато: {log_filepath}\n")
+    log_file.write(f"Время запуска: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
+    log_file.write("-" * 50 + "\n")
+    log_file.flush()
+
+def log_message(message):
+    """Записывает сообщение в лог файл и выводит в консоль"""
+    global log_file
+    print(message)  # Выводим в консоль
+    if log_file:
+        log_file.write(message + "\n")
+        log_file.flush()
+
+def close_logging():
+    """Закрывает файл лога"""
+    global log_file
+    if log_file:
+        log_file.write("-" * 50 + "\n")
+        log_file.write(f"Логирование завершено: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}\n")
+        log_file.close()
+        log_file = None
 
 # Таблицы для преобразования классов и рас
 CLASSES = {
@@ -17,7 +58,7 @@ CLASSES = {
     "Druid": 6,
     "Shaman": 7,
     "Warrior": 8,
-    "Death Knight": 9,  # Исправлено - с заглавной K
+    "Death Knight": 9,
 }
 
 RACES = {
@@ -58,7 +99,6 @@ def get_gs_color(gs_value):
 def find_database_file():
     """Находит последний файл базы данных в каталоге BASES или текущем каталоге"""
     bases_dir = "BASES"
-    
     # Ищем в каталоге BASES
     if os.path.exists(bases_dir) and os.path.isdir(bases_dir):
         db_files = []
@@ -66,19 +106,16 @@ def find_database_file():
             if file.startswith('ezbase_') and file.endswith('.db'):
                 file_path = os.path.join(bases_dir, file)
                 db_files.append((file_path, os.path.getmtime(file_path)))
-        
         if db_files:
             # Сортируем по дате изменения (последний первый)
             db_files.sort(key=lambda x: x[1], reverse=True)
-            print(f"Найдена база в BASES: {os.path.basename(db_files[0][0])}")
+            log_message(f"Найдена база в BASES: {os.path.basename(db_files[0][0])}")
             return db_files[0][0]
-    
     # Ищем в текущем каталоге
     for file in os.listdir('.'):
         if file.startswith('ezbase_') and file.endswith('.db'):
-            print(f"Найдена база в текущем каталоге: {file}")
+            log_message(f"Найдена база в текущем каталоге: {file}")
             return file
-    
     return None
 
 def generate_database_code(database_dict):
@@ -90,14 +127,14 @@ def generate_database_code(database_dict):
     account_lines = []
     for forum_name, chars_list in sorted_items:
         # Экранируем специальные символы в forum_name
-        escaped_forum_name = forum_name.replace('"', '\\"')
+        escaped_forum_name = forum_name.replace('"', '\\"').replace("'", "\\'")
         # Создаем список всех персонажей для этого аккаунта
         char_lines = []
         for char_data in chars_list:
             name, lvl, gs, race, guild, class_num, gs_color = char_data
             # Экранируем специальные символы в имени и гильдии
-            escaped_name = name.replace('"', '\\"') if name else ""
-            escaped_guild = guild.replace('"', '\\"') if guild else ""
+            escaped_name = name.replace('"', '\\"').replace("'", "\\'") if name else ""
+            escaped_guild = guild.replace('"', '\\"').replace("'", "\\'") if guild else ""
             char_line = f'{{"{escaped_name}",{lvl},{gs},{race},"{escaped_guild}",{class_num},"{gs_color}"}}'
             char_lines.append(char_line)
         # Объединяем персонажей в строки, разбивая если слишком длинные
@@ -128,32 +165,30 @@ def generate_database_code(database_dict):
 
 def generate_addon_with_database():
     """Основная функция генерации аддона"""
+    log_message("Запуск генерации аддона...")
     # Находим базу данных автоматически
     db_path = find_database_file()
     if not db_path:
-        print("Ошибка: Файл базы данных не найден!")
-        print("Убедитесь, что файл с именем ezbase_*.db находится в папке BASES или в текущей папке.")
+        log_message("Ошибка: Файл базы данных не найден!")
+        log_message("Убедитесь, что файл с именем ezbase_*.db находится в папке BASES или в текущей папке.")
         return
-    
-    print(f"Используется база данных: {db_path}")
-    
+    log_message(f"Используется база данных: {db_path}")
     # Получаем дату изменения файла как дату сборки
     build_time = datetime.fromtimestamp(os.path.getmtime(db_path)).strftime('%d.%m.%Y %H:%M')
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    
     # Получаем общее количество записей
     cursor.execute("SELECT COUNT(*) FROM characters")
     total_records = cursor.fetchone()[0]
-    print(f"Всего записей в базе: {total_records}")
+    log_message(f"Всего записей в базе: {total_records}")
 
     # Получаем количество уникальных аккаунтов и гильдий
     cursor.execute("SELECT COUNT(DISTINCT forum_name) FROM characters WHERE forum_name != ''")
     total_accounts = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(DISTINCT guild) FROM characters WHERE guild != ''")
     total_guilds = cursor.fetchone()[0]
-    print(f"Уникальных аккаунтов: {total_accounts}")
-    print(f"Уникальных гильдий: {total_guilds}")
+    log_message(f"Уникальных аккаунтов: {total_accounts}")
+    log_message(f"Уникальных гильдий: {total_guilds}")
 
     # Получаем все записи, группируем по аккаунту и сортируем по GS внутри каждого аккаунта
     cursor.execute("""
@@ -166,28 +201,23 @@ def generate_addon_with_database():
     # Создаем словарь для хранения данных
     database_dict = {}
     unknown_classes = set()  # Для отслеживания неизвестных классов
-    
     for row in rows:
         forum_name, name, level, gs, class_str, guild, race_str = row
         # Обрабатываем пустой forum_name
         if not forum_name or forum_name.strip() == "":
             forum_name = "NOFORUMNAME"
-        
         # Преобразуем class из строки в число
         class_num = CLASSES.get(class_str, 0)
-        
         # Если класс не найден, попробуем найти игнорируя регистр
         if class_num == 0 and class_str:
             for class_key, class_id in CLASSES.items():
                 if class_str.lower() == class_key.lower():
                     class_num = class_id
                     break
-        
         # Если все еще не нашли, добавляем в список неизвестных
         if class_num == 0 and class_str:
             unknown_classes.add(class_str)
-            print(f"Предупреждение: Неизвестный класс '{class_str}' для персонажа '{name}'")
-        
+            # log_message(f"Предупреждение: Неизвестный класс '{class_str}' для персонажа '{name}'")
         # Преобразуем race из строки в число
         race_num = RACES.get(race_str, 0)
         # Если раса не найдена, попробуем найти по ключу в нижнем регистре
@@ -196,13 +226,11 @@ def generate_addon_with_database():
                 if race_str.lower() == race_key.lower():
                     race_num = race_id
                     break
-        
         # Определяем цвет GS
         gs_color = get_gs_color(gs)
 
         # Создаем запись персонажа: [name, level, gs, race, guild, class, gs_color]
         char_data = [name, level, int(gs) if gs else 0, race_num, guild, class_num, gs_color]
-        
         # Добавляем персонажа в соответствующую группу forum_name
         if forum_name not in database_dict:
             database_dict[forum_name] = []
@@ -210,13 +238,17 @@ def generate_addon_with_database():
 
     # Выводим статистику по неизвестным классам
     if unknown_classes:
-        print(f"\nПредупреждение: Найдены неизвестные классы: {unknown_classes}")
-        print("Пожалуйста, добавьте их в словарь CLASSES в скрипте")
+        log_message(f"\nПредупреждение: Найдены неизвестные классы: {unknown_classes}")
+        log_message("Пожалуйста, добавьте их в словарь CLASSES в скрипте")
 
     # Генерируем код базы данных
+    log_message("Генерация LUA кода базы данных...")
     db_code = generate_database_code(database_dict)
 
     # Генерируем основной файл аддона со встроенной базой
+    log_message("Создание файла аддона...")
+    
+    # Формируем LUA код с правильным экранированием
     main_code = f'''-- EzInfo Addon
 -- Локальные ссылки для оптимизации
 local strlower, format, GetTime, UnitName, UnitIsPlayer, UnitExists = strlower, string.format, GetTime, UnitName, UnitIsPlayer, UnitExists
@@ -419,27 +451,35 @@ end)
     # Сохраняем основной файл аддона в текущей директории
     with open('EzInfo.lua', 'w', encoding='utf-8') as f:
         f.write(main_code)
-    print(f"Файл аддона сохранен как EzInfo.lua")
+    log_message(f"Файл аддона сохранен как EzInfo.lua")
     
     # Копируем файл в папку интерфейса WoW, если путь указан
     if WoW_InterfaceFolderPath and WoW_InterfaceFolderPath.strip():
         try:
             destination_path = os.path.join(WoW_InterfaceFolderPath, 'EzInfo.lua')
             shutil.copy2('EzInfo.lua', destination_path)
-            print(f"Файл аддона скопирован в: {destination_path}")
+            log_message(f"Файл аддона скопирован в: {destination_path}")
         except Exception as e:
-            print(f"Ошибка при копировании файла в {WoW_InterfaceFolderPath}: {e}")
+            log_message(f"Ошибка при копировании файла в {WoW_InterfaceFolderPath}: {e}")
     
-    print(f"Генерация аддона завершена!")
-    print(f"Статистика базы:")
-    print(f"  Персонажи: {total_records}")
-    print(f"  Аккаунты: {total_accounts}")
-    print(f"  Гильдии: {total_guilds}")
+    log_message(f"Генерация аддона завершена!")
+    log_message(f"Статистика базы:")
+    log_message(f"  Персонажи: {total_records}")
+    log_message(f"  Аккаунты: {total_accounts}")
+    log_message(f"  Гильдии: {total_guilds}")
     
     if unknown_classes:
-        print(f"Предупреждение: Обнаружены неизвестные классы: {unknown_classes}")
+        log_message(f"Предупреждение: Обнаружены неизвестные классы: {unknown_classes}")
     
     conn.close()
 
 if __name__ == "__main__":
-    generate_addon_with_database()
+    try:
+        setup_logging()
+        generate_addon_with_database()
+    except Exception as e:
+        log_message(f"Произошла ошибка: {e}")
+        import traceback
+        log_message(f"Трассировка ошибки: {traceback.format_exc()}")
+    finally:
+        close_logging()
